@@ -15,6 +15,10 @@ const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "my_secure_token_123";
 const APP_SECRET = process.env.APP_SECRET; // Your App Secret from the dashboard
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
+
 /**
  * 1. Verification Endpoint (GET)
  */
