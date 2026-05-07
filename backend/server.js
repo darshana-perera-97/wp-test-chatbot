@@ -11,7 +11,7 @@ app.use(express.json({
     }
 }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "my_secure_token_123";
 const APP_SECRET = process.env.APP_SECRET; // Your App Secret from the dashboard
 
