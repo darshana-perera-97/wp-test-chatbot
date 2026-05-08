@@ -10,8 +10,9 @@ app.use(express.json({
     verify: (req, res, buf) => { req.rawBody = buf; }
 }));
 
-const { PORT, VERIFY_TOKEN, APP_SECRET, ACCESS_TOKEN, PHONE_NUMBER_ID } = process.env;
+const { PORT, VERIFY_TOKEN, APP_SECRET, ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_SIGNATURE } = process.env;
 const SERVER_PORT = PORT || 3001;
+const SHOULD_VERIFY_SIGNATURE = VERIFY_SIGNATURE !== 'false';
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
@@ -37,14 +38,30 @@ app.get('/webhook', (req, res) => {
  */
 app.post('/webhook', async (req, res) => {
     // Signature Verification
-    if (APP_SECRET) {
-        const signature = req.headers['x-hub-signature-256'];
-        const hash = crypto.createHmac('sha256', APP_SECRET).update(req.rawBody).digest('hex');
+    if (SHOULD_VERIFY_SIGNATURE) {
+        if (!APP_SECRET) {
+            console.error("❌ APP_SECRET is missing. Set APP_SECRET or use VERIFY_SIGNATURE=false for local testing.");
+            return res.sendStatus(500);
+        }
 
-        if (signature !== `sha256=${hash}`) {
-            console.error("❌ Signature mismatch!");
+        const signature = req.headers['x-hub-signature-256'];
+        if (!signature || !signature.startsWith('sha256=')) {
+            console.error("❌ Missing or invalid x-hub-signature-256 header.");
             return res.sendStatus(401);
         }
+
+        const receivedHash = signature.replace('sha256=', '');
+        const expectedHash = crypto.createHmac('sha256', APP_SECRET.trim()).update(req.rawBody).digest('hex');
+        const isValid =
+            receivedHash.length === expectedHash.length &&
+            crypto.timingSafeEqual(Buffer.from(receivedHash, 'hex'), Buffer.from(expectedHash, 'hex'));
+
+        if (!isValid) {
+            console.error("❌ Signature mismatch! Check your APP_SECRET in .env (must match Meta App Secret exactly).");
+            return res.sendStatus(401);
+        }
+    } else {
+        console.warn("⚠️ Signature verification is disabled (VERIFY_SIGNATURE=false). Use only for local testing.");
     }
 
     const body = req.body;
